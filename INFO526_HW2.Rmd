@@ -1,0 +1,352 @@
+QUESTION 1
+```{r}
+library(magrittr)
+library(dplyr)
+```
+
+
+```{r}
+load(file = "C:/Users/ual-laptop/Downloads/INFO526 HW2/data/edibnb.rda")
+neighborhood_ordr <- edibnb %>%
+  group_by(neighbourhood) %>%
+  summarise(median_score = median(review_scores_rating, na.rm= TRUE)) %>%
+  arrange(median_score) %>%
+  pull(neighbourhood)
+```
+
+
+```{r}
+library(ggplot2)
+library(ggridges)
+
+ggplot(edibnb, aes(x= review_scores_rating, y= factor(neighbourhood, levels = neighborhood_ordr )))+
+  geom_density_ridges(fill = "lightblue", color = "white")+
+  labs(title = "Ridgeplot of Airbnb review scores of Edinburgh neighborhoods",
+         x= "Review Scores Rating", 
+       y= "Neighbourhoods Ordered by Mean Value")
+```
+
+- This density ridge plot displays the distribution of airbnb scores across Edinburgh, ordered by the median value of their review scores.
+
+- Each ridge denotes a neighbourhood, illustrating the range and density if  review  scores.
+
+- Neighbourhoods with a pronounced and concentrated peak like `Morningside` have a higher median score. Guests tend to rate their stays with a high rating.
+
+- However neighbourhoods with a broader ridge convey a wide variety of review ratings given by the guests. 
+
+
+QUESTION 2
+
+```{r}
+library(fs)
+library(janitor)
+library(tidyverse)
+# get a list of files with "Foreign Connected PAC" in their names 
+list_of_files <- dir_ls(path = "data", regexp = "Foreign Connected PAC")
+```
+
+```{r}
+pac <- read_csv(list_of_files, id = "year") 
+```
+
+```{r}
+pac <- pac %>%
+  clean_names()
+
+glimpse(pac)
+```
+```{r}
+pac_separate<- pac%>%
+  separate(col= country_of_origin_parent_company,
+           into= c("country_of_origin","parent_company"),
+       sep="/")
+```
+```{r}
+pac_transform <- pac_separate %>%
+  select(year, pac_name_affiliate, country_of_origin, parent_company, dems, repubs)%>%
+  mutate(
+    year = as.integer(str_extract(year, "\\d{4}(?=\\.csv)")),
+    dems = as.numeric(gsub("[^0-9]", "", dems)), 
+    repubs = as.numeric(gsub("[^0-9]", "", repubs))
+  )
+glimpse(pac_transform)
+```
+```{r}
+pac_long <- pac_transform %>%
+  pivot_longer(cols = c(dems, repubs), 
+               names_to = "party", 
+               values_to = "amount")
+glimpse(pac_long)
+
+```
+
+```{r}
+pac_longer <- pac_long %>%
+  mutate(party = ifelse(party == "dems", "Democrat", "Republican"))
+
+# Glimpse at the transformed data
+glimpse(pac_longer)
+
+```
+
+```{r}
+uk_pac_contributions <- pac_longer %>%
+  filter(country_of_origin == "UK") %>%  # Filter for PACs from the UK
+  group_by(year, party) %>%  # Group by year and party (dems/repubs)
+  summarize(total_contributions = sum(amount, na.rm = TRUE), .groups = 'drop')
+
+# View data
+glimpse(uk_pac_contributions)
+
+```
+
+```{r}
+ggplot(uk_pac_contributions, aes(x = year, y = total_contributions, color = party, group = party)) +
+  geom_line(size = 1) + 
+  scale_y_continuous(labels = scales::dollar_format(scale = 1e-6, suffix="M"))+
+  labs(
+    title = "Contributions to US Political Parties from UK_Connected PAC",
+    x = "Year",
+    y = "Total Amount",
+    color = "Party",
+    caption = "Source: OpenSecrets.org"
+  ) +
+  scale_color_manual(values = c("Democrat" = "blue", "Republican" = "red")) + 
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0, size = 12),
+    plot.caption = element_text(hjust = 1, face ="italic"),
+    axis.title.y = element_text(hjust = 0), 
+    axis.title.x = element_text(hjust = 0),
+    legend.position = c(0.85,0.16)
+    )
+
+```
+
+```{r}
+switz_pac_contributions <- pac_longer %>%
+  filter(country_of_origin == "Switzerland") %>%  
+  group_by(year, party) %>%  # Group by year and party (dems/repubs)
+  summarize(total_contributions = sum(amount, na.rm = TRUE), .groups = 'drop')
+glimpse(uk_pac_contributions)
+
+```
+
+```{r}
+ggplot(switz_pac_contributions, aes(x = year, y = total_contributions, color = party, group = party)) +
+  geom_line(size = 1) + 
+  scale_y_continuous(labels = scales::dollar_format(scale = 1e-6, suffix="M"))+
+  labs(
+    title = "Contributions to US Political Parties from Switzerland_Connected PAC",
+    x = "Year",
+    y = "Total Amount",
+    color = "Party",
+    caption = "Source: OpenSecrets.org"
+  ) +
+  scale_color_manual(values = c("Democrat" = "blue", "Republican" = "red")) + 
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0, size = 12),
+    plot.caption = element_text(hjust = 1, face ="italic"),
+    axis.title.y = element_text(hjust = 0), 
+    axis.title.x = element_text(hjust = 0),
+    legend.position = c(0.85,0.16)
+    )
+```
+
+
+
+QUESTION 3
+
+```{r}
+med_price <- read_csv("C:/Users/ual-laptop/Downloads/INFO526 HW2/data/median-housing.csv")
+recession <- read_csv("C:/Users/ual-laptop/Downloads/INFO526 HW2/data/recessions.csv")
+```
+
+
+-   Rename Variables
+
+```{r}
+med_price %>%
+    rename(
+      date = DATE,
+      price = MSPUS
+    )
+```
+
+- Conversion
+
+```{r}
+mp <- med_price %>%
+  mutate(new_date = as.Date(DATE, format = "%Y-%m-%d"))
+```
+
+
+-   Visualization 1
+
+```{r}
+ggplot(mp, aes(x= new_date, y = MSPUS))+
+  geom_line(color = "blue")+
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y")+
+  scale_y_continuous(
+    breaks = seq(0, 400000, by = 40000),
+    labels = scales::comma)+
+  labs(title = "Median sales prices of houses sold in the United States",
+       subtitle = "Not seasonally adjusted",
+       caption = "Sources: Census; HUD",
+       y = "Dollars",
+       x = "")+
+  theme_minimal()+
+  theme(
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_line()
+  )
+  
+```
+- Identifying Recession
+
+```{r}
+frame_start <- min(med_price$DATE)
+frame_end <- max(med_price$DATE)
+
+id_rec <- recession %>%
+  mutate(id = (Peak >= frame_start & Trough <= frame_end)) %>%
+  filter(id)
+
+id_rec$Peak <- as.Date(id_rec$Peak)
+id_rec$Trough <- as.Date(id_rec$Trough)
+```
+
+- Visualization 2
+
+```{r}
+ggplot()+
+  geom_rect(data = id_rec, aes(xmin= Trough, xmax = Peak, ymin=0, ymax = Inf),
+              fill = "gray", alpha = 0.4)+
+  geom_line(data =mp, aes(x= new_date, y = MSPUS), color = "blue")+
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y")+
+  scale_y_continuous(
+    breaks = seq(0, 400000, by = 40000),
+    labels = scales::comma)+
+  labs(title = "Median sales prices of houses sold in the United States",
+       subtitle = "Not seasonally adjusted",
+       caption = "Shaded areas indicate US recessions\n
+       Sources: Census; HUD",
+       y = "Dollars",
+       x = "")+
+  theme_minimal()+
+  theme(
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_line()
+  )
+
+```
+
+- Creating a subset
+
+```{r}
+med_sub <- mp %>%
+  filter((year(new_date) == 2019) | (year(new_date) == 2020))
+```
+
+- Adding columns
+
+```{r}
+med_sub <- med_sub %>%
+  mutate(year = year(new_date),
+         quarter = paste0("Q",quarter(new_date)))
+```
+
+- Visualization 3
+
+```{r}
+med_sub |>
+  mutate(year_quarters = factor(paste(year, "|", quarter))) |>
+  ggplot(aes(x = new_date, y = MSPUS)) +
+  geom_line(colour = "blue", size = 0.8) +
+  geom_point(colour = "blue", fill = "white", shape = 21) +
+  scale_y_continuous(name = "Dollars",
+                     breaks = seq(300000, 360000, by = 20000),
+                     labels = scales::comma,
+                     ) +
+  scale_x_date(name = "",  
+               breaks = med_sub$new_date,
+               labels = med_sub$quarter) +  
+  labs(title = "Median sales price of houses sold in the United States",
+       subtitle = "Not seasonally adjusted", x=NULL) +
+  coord_cartesian(clip = "off", ylim = c(300000, 360000),
+                  xlim = c(as.Date("2019-01-01"), as.Date("2020-12-31"))) +
+  annotate("text", x = as.Date("2019-06-01"), y = 290000, label = "2019") +
+  annotate("text", x = as.Date("2020-06-01"), y = 290000, label = "2020") +
+  theme_minimal() +
+  theme(plot.title.position="plot")
+```
+
+- QUESTION 4
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(ggforce)
+
+# Create a data frame for circles
+target_data <- tibble(
+  x = 0, 
+  y = 0, 
+  r = c(1, 0.70, 0.40)  # Radii for each circle
+)
+
+# Create the target symbol
+ggplot(target_data) +
+  geom_circle(aes(x0 = x, y0 = y, r = r), 
+              color = "#cc0000", 
+              fill = "#cc0000") +  # Outer circle
+  geom_circle(aes(x0 = x, y0 = y, r = r[2]), 
+              color = "white", 
+              fill = "white") +  # Inner circle (white)
+  geom_circle(aes(x0 = x, y0 = y, r = r[3]), 
+              color = "#cc0000", 
+              fill = "#cc0000") +  # Middle circle (red)
+  coord_fixed() +  # Keep aspect ratio
+  theme_void() +   # Remove axes and background
+  annotate("text",x= 0, y= -1.2,label = "TARGET", color = "#cc0000", size= 8, fontface="bold")+
+  annotate("text", x=0.4, y= -1.25, label="®", color ="#cc0000", size= 5, fontface="bold")
+```
+
+
+QUESTION 5
+
+```{r}
+library("palmerpenguins")
+
+ggplot(penguins, aes(x= bill_length_mm, y= bill_depth_mm))+
+  geom_point(aes(color = species, shape = species), size = 2.5)+
+  labs(x= "Bill length",
+       y= "Bill depth",
+       title = "Bill depth VS bill length of various penguin species")
+```
+
+
+```{r}
+ggplot(penguins, aes(x= bill_length_mm, y= bill_depth_mm, color= species, shape = species))+
+  geom_point(size = 2.5)+
+  scale_color_manual(values = c("Adelie"="#15F5BA", "Chinstrap"="#97FFF4", "Gentoo" = "#C0E218"))+
+  theme(
+    panel.background = element_rect(fill = "#FCF876"),
+    plot.background = element_rect(fill = "#851DE0"),
+    legend.background = element_rect(fill = "#851DE0")
+  )
+```
+
+- For the sake of this exercise I have created this plot with a very data-to-ink ratio, which is considered to be ugly.
+
+
+```{r}
+ggplot(penguins)+ xlim(0, 10) + ylim(0, 100)
+```
+
+- The reason for this empty plot is that, for me it is truly ugly as there is no data in this. Even in graphs with high data-to-ink ratios you can get something, but here from a data scientist's perspective this would be the ugliest plot.

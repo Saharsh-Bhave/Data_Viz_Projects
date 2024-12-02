@@ -1,0 +1,331 @@
+# Question 1:
+
+-   I have chosen the plot of avg.height and weight vs summer sports. For this plot in my project we received feedback requiring a bit more clarification from this plot.
+
+-   Hence for the original plot to be more clear, I have reduced the number of sports but still maintained the trend that was being followed.
+
+-   The reducing mean height and weight can be used to classify which player will be better suited for which sport.
+
+```{r}
+olympics <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2024/2024-08-06/olympics.csv')
+```
+
+```{r}
+library(pacman)
+
+# Load necessary packages
+pacman::p_load(ggplot2, dplyr, ggrepel, gganimate, png, magick, ggridges)
+```
+
+```{r}
+#| label: avg-height-by-sport 
+
+# Filter for Summer Olympics
+summer <- dplyr::filter(olympics, season == "Summer")  |> na.omit(summer$height)
+
+# Calculate average height while removing NA values
+summer_height_avg <- tapply(summer$height, summer$sport, function(x) mean(x, na.rm = TRUE))
+
+# Convert to data frame
+summer_height_avg_df <- data.frame(sport = names(summer_height_avg), average_height = summer_height_avg)
+
+# Sort by average height
+summer_height_avg_df <- summer_height_avg_df[order(-summer_height_avg_df$average_height), ] 
+
+# Print the result
+summer$sport <- factor(summer$sport, levels = summer_height_avg_df$sport[order(summer_height_avg_df$average_height)])
+summer_clean <- summer |> na.omit()
+sport_counts <- table(summer_clean$sport)
+sports_with_enough_data <- names(sport_counts[sport_counts >= 750])
+# Create the violin plot
+summer |> filter(sport %in% sports_with_enough_data) |>
+ggplot(
+  aes(x = height, y = sport, fill = sex)) +
+   geom_density_ridges(alpha = 0.3) +
+  labs(title = "Average Height Distribution by Sport and Season in the Olympics",
+       x = "Height",
+       y = "Sport") +
+  theme_minimal()
+```
+
+```{r}
+#| label: avg-weight-by-sport
+
+summer <- dplyr::filter(olympics, season == "Summer") |> na.omit(summer$weight)
+sport_counts <- summer %>%
+  group_by(sport) %>%
+  summarise(count = n())
+
+valid_sports <- sport_counts %>%
+  filter(count >= 750) %>%
+  pull(sport)
+
+summer_filtered <- summer %>%
+  filter(sport %in% valid_sports)
+
+# Calculate average weight while removing NA values
+summer_weight_avg <- tapply(summer_filtered$weight, summer_filtered$sport, function(x) mean(x, na.rm = TRUE))
+
+# Convert to data frame
+summer_weight_avg_df <- data.frame(sport = names(summer_weight_avg), average_weight = summer_weight_avg)
+
+# Sort by average weight
+summer_weight_avg_df <- summer_weight_avg_df[order(-summer_weight_avg_df$average_weight), ] 
+
+# Print the result
+summer_filtered$sport <- factor(summer_filtered$sport, levels = summer_weight_avg_df$sport[order(summer_weight_avg_df$average_weight)])
+# Create the violin plot
+summer_filtered |>
+ggplot(
+  aes(x = weight, y = sport, fill = sex)) +
+  geom_density_ridges(alpha = 0.3) +
+  labs(
+    title = "Average Weight Distribution by Sport and Season in the Olympics",
+    x = "Weight",
+    y = "Sport") +
+  theme_minimal()
+```
+
+# Question 2:
+
+```{r}
+library(tigris)
+library(sf)
+library(ggrepel)
+```
+
+```{r}
+options(tigris_use_cache = TRUE)
+
+az_counties <- tigris::counties("Arizona", year = 2021, progress_bar = FALSE)
+
+write_sf(az_counties, "Arizona_Counties_2021.shp")
+```
+
+```{r}
+az_counties_check <- read_sf("Arizona_Counties_2021.shp")
+head(az_counties_check)
+```
+
+```{r}
+ggplot(data = az_counties_check)+
+  geom_sf(fill = "#ececec", color = "#949494")+
+  geom_label_repel(data = az_counties_check,
+                    aes(label = NAME, geometry = geometry), stat = "sf_coordinates",
+                   min.segment.length = 0)+
+  labs(
+    title = "Counties in Arizona State",
+    x = "Longitude",
+    y = "Latitude",
+    caption = "Source: Shapefile obtained using {tigris}"
+  )+
+  theme_minimal()
+
+```
+
+# Question 3:
+
+```{r}
+library(readxl)
+library(stringr)
+```
+
+```{r}
+# Load the shapefile data for Arizona
+arizona_counties <- counties(state = "AZ", cb = TRUE, year = 2023)
+
+# Load the data and inspect the column structure
+population_data <- read_excel(
+  "C:/Users/ual-laptop/Downloads/Homework 4  attached files Nov 27, 2024 728 PM/HW4_data/HW4_data/co-est2023-pop-04.xlsx",
+  skip = 2      
+)
+
+# Rename columns for easier handling
+colnames(population_data) <- c(
+  "geographic_area", "april_2020_estimates", "pop_2020", 
+  "pop_2021", "pop_2022", "pop_2023"
+)
+
+# Filter out state-level data and keep only county-level rows
+population_data <- population_data %>%
+  filter(!grepl("^Arizona", geographic_area)) %>%
+  mutate(
+    county = gsub(" County, Arizona", "", geographic_area),  # Clean up county names
+    total_pop_change_20_23 = pop_2023 - pop_2020            # Calculate population change
+  )
+
+# Select relevant columns
+population_data <- population_data %>%
+  select(county, total_pop_change_20_23)
+population_data <- population_data %>% slice(-1) %>%    # Remove first row
+  slice_head(n=15)
+population_data <- population_data %>%
+  mutate(county = str_remove(county,"^\\."))
+```
+
+```{r}
+# Merge the shapefile data with population change data
+arizona_counties <- arizona_counties %>%
+  left_join(population_data, by = c("NAME" = "county"))
+# Plot the map with population change
+ggplot(data = arizona_counties) +
+  geom_sf(aes(fill = total_pop_change_20_23), color = "White", lwd = 0.2) +
+  scale_fill_distiller(
+    palette = "RdBu",
+    direction = -1,
+    name = "Population change"
+  ) +
+  labs(
+    title = "Resident Population Change for Counties in AZ",
+    subtitle = "July 01, 2020 to July 01, 2023",
+    x = "Longitude",
+    y = "Latitude",
+    caption = "Source: Shapefile obtained using {tigris} R package, v2.0.1\npopulation change data from the US Census Bureau"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0, size = 14),
+    plot.subtitle = element_text(hjust = 0, size = 12),
+    plot.caption = element_text(hjust = 0, size = 8),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    legend.position="right",
+    panel.grid.major = element_line(size=0.7)
+)
+```
+
+# Question 4:
+
+```{r}
+tribal_regions <- read_sf("C:/Users/ual-laptop/Downloads/Homework 4  attached files Nov 27, 2024 728 PM/HW4_data/HW4_data/American_Indian_Reservations_in_Arizona.shp")
+
+tribal_regions <- st_transform(tribal_regions, crs = 4269)
+
+ggplot()+
+  geom_sf(data = az_counties_check, fill = "#ececec", color = "white")+
+  geom_sf(data = tribal_regions, color = "black", fill = "#d3d3d3", linewidth = 1)+
+  geom_label_repel(data = head(tribal_regions), aes(label = NAME, geometry = geometry), stat = "sf_coordinates",
+                    min.segment.length = 0)+
+  labs(
+    title = "Indigenous Tribal Boundaries in AZ",
+    y = "Latitude",
+    x = "Longitude",
+    caption = "Source: Shapefile obtained using {tigris} R package, \n
+                Indigenous Tribal shapefile obtained from AZGeoData"
+  )+
+  theme_minimal()
+```
+
+# Question 5:
+
+```{r}
+filtered_az_counties <- arizona_counties %>%
+  filter(NAME %in% c("Maricopa", "Pinal", "Pima"))
+
+```
+
+```{r}
+base_map <- ggplot(data = arizona_counties) +
+  geom_sf(aes(fill = total_pop_change_20_23), color = "white") +  
+ scale_fill_distiller(
+    palette = "RdBu",
+    direction = -1,
+    name = "Population change"
+  ) +
+  theme_minimal() +
+  geom_label_repel(data = filtered_az_counties,  
+                   aes(label = NAME, geometry = geometry),
+                   stat = "sf_coordinates", 
+                   size = 3, fontface = "bold",
+                   fill = "white", color = "black", 
+                   label.padding = unit(0.2, "lines"),  
+                   label.size = 0.3,                 
+                   arrow = arrow(length = unit(0.02, "npc")),  
+                   force = 5,                        
+                   max.overlaps = Inf     
+  ) +
+  labs(
+    title = "Resident Population Change for Counties in AZ",
+    subtitle = "July 01, 2020 to July 01, 2023",
+    x = "Longitude",
+    y = "Latitude",
+    caption = "Source: Shapefile obtained using {tigris} R package, v2.0.1 \npopulation change data from the US Census Bureau \nIndigenous Tribe Shapefile btained from AZGeo Data") +
+  theme(
+    axis.text = element_text(size = 10), 
+    axis.ticks = element_line(),
+    plot.title = element_text(size = 14, hjust = 0.6),
+    plot.subtitle = element_text(size = 10, hjust = -0.2),
+    plot.caption = element_text(size = 9, hjust = 1),
+    axis.text.x = element_text(size = 8),
+    legend.position = c(0.27, 0.9),       
+    legend.direction = "horizontal",     
+    legend.background = element_rect(fill = NA, color = NA),  
+    legend.title = element_text(size = 10),  
+    legend.text = element_text(size = 8),  
+    legend.title.position = "top",
+    legend.spacing.y = unit(0.3, "cm"),  
+    legend.key.size = unit(0.7, "cm"),   
+    legend.key.width = unit(0.95, "cm"),     
+    legend.key.height = unit(0.4, "cm")   
+        ) +
+  coord_sf(xlim = c(-122, -109), ylim = c(29, 37))  
+base_map
+```
+
+```{r}
+filtered_tribes_sub <- tribal_regions %>%
+  filter(NAME %in% c("White Mountain Apache Tribe",
+                     "San Carlos Apache Tribe",
+                     "Tohono O’odham Nation"))
+inset_map <- ggplot(data = arizona_counties) +
+  geom_sf(aes(fill = total_pop_change_20_23), color = "white") +  
+  scale_fill_distiller(
+    palette = "RdBu",
+    direction = -1,
+    name = "Population change"
+  ) +  
+  geom_sf(data = tribal_regions, 
+          fill = "gray", color = "black", size = 1) +
+  
+  geom_label_repel(data = filtered_tribes_sub,   
+                   aes(label = NAME, geometry = geometry),
+                   stat = "sf_coordinates",  
+                   size = 1.8, fontface = "bold",
+                   fill = "white", color = "black", 
+                   label.padding = unit(0.2, "lines"),  
+                   label.size = 0.3,           
+                   arrow = arrow(length = unit(0.02, "npc")),
+                   force = 10,                    
+                   max.overlaps = Inf               
+  )+
+  theme_minimal() +
+  theme(
+    axis.title = element_blank(),  
+    axis.text = element_blank(),  
+    axis.ticks = element_blank(),  
+    plot.background = element_rect(fill = "grey50", color = NA), 
+    panel.background = element_rect(fill = "grey50", color = NA)
+  )+
+  guides(fill = guide_none())
+inset_map
+```
+
+```{r}
+library(patchwork)
+
+base_map_with_lines <- base_map +
+  geom_segment(aes(x = -113, y = 32, xend = -118, yend = 32), linetype = "dotted", size = 0.7, color = "black") +
+  geom_segment(aes(x = -113, y = 32, xend = -118, yend = 30), linetype = "dotted", size = 0.7, color = "black") +
+  theme(plot.margin = unit(c(0, 0, 0, 0), "cm"))  
+compressed_inset <- inset_map +
+  theme(plot.margin = unit(c(0.3,0.3,0.1,0.1), "cm"))  
+combined_plot <- base_map_with_lines +
+  inset_element(
+    compressed_inset,
+    left = -0.2,
+    bottom = 0,
+    right = .6,
+    top = .5
+  )
+combined_plot
+```

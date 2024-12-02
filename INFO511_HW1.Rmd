@@ -1,0 +1,338 @@
+QUESTION 1.
+
+a. Five functions to get more information about mpg are
+
+-view(mpg): to view the data set in a spreadsheet format
+-str(mpg): to compactly display the structure
+-names(mpg): to get the set of names from mpg
+-summary(mpg): to get the object summary of mpg (includes statistical values)
+-dim(mpg): shows the dimensions of mpg data set
+
+```{r}
+library(ggplot2)
+ggplot(mpg, aes(model, manufacturer))+geom_point()
+```
+
+- Shows a scatter plot with models on the X-axis and manufacturers on the Y-axis, which is not at all useful as the large number of models on the X-axis makes it very hard to interpret this graph.
+
+b.
+
+- Interchanging the legends on the axes will completely change the graph making it easy to understand.
+
+
+```{r}
+ggplot(mpg, aes(manufacturer, model))+geom_point()
+```
+
+
+QUESTION 2.
+
+a.
+
+- Creating a histogram
+
+```{r}
+library(openintro)
+hist(nyc_marathon$time_hrs, xlab = 'Marathon Time', ylab = 'Frequency of Runners',main = 'Histogram of NYC_Marathon Time')
+```
+
+-- It could be inferred from the histogram that almost all of the runners completed their races in 2hrs and 40minutes.
+
+-- Maximum runners completed their races in 2hrs and 15minutes.
+
+-- The exact time slot maximum number of racers completed their race was in between 2hrs and 6min to 2hrs and 12min. The second such time slot was from 2hrs and 24min to 2hrs and 30min.
+
+- Creating a bar plot
+
+```{r}
+boxplot(nyc_marathon$time_hrs, main = 'Barplot of NYC_Marathon runners Time', xlab = 'Runners', ylab = 'Marathon Time')
+```
+
+-- The Boxplot tells us that more than 50% of the total runners participating in the event completed the race after 2hrs 24mins.
+
+b.
+
+- Creating a side-by-side box-plot for men and women.
+
+```{r}
+boxplot(nyc_marathon$time_hrs~nyc_marathon$division,
+        main='Box-plot of time of men and women',
+        xlab = 'gender',
+        ylab = 'time',
+        col=c('pink','steelblue'))
+```
+
+-- The maximum time it took for men to finish the marathon was less than the minimum time of women (not counting the outliers).
+
+-- The box-plot for men looks approximately equal  with exact distribution of number of racers and time whereas for women the number of racers who took longer to finish is more.
+
+c.
+
+- The outliers appearing in the plot are proving to be redundant. Redoing the plot avoiding this redundancy.
+
+```{r}
+boxplot(nyc_marathon$time_hrs~nyc_marathon$division,
+        main='Box-plot of time of men and women',
+        xlab = 'gender',
+        ylab = 'time',
+        col=c('pink','steelblue'),
+        outline = FALSE)
+```
+
+-- This modification drastically changes data-to-ink ratio as the box plots are now broader and hence clearer.
+
+-- The spots indicating the outliers are no longer present which is a relief as earlier they were the main focus of attraction.
+
+d.
+
+- Creating a time series graph for men and women's marathon times.
+```{r}
+ggplot(nyc_marathon, aes(x = year, y = division))+
+  geom_line(aes(colour = division))
+```
+
+-- From this time series graph it is evident that throughout the years the timings of both men and women have consistent.
+
+QUESTION 3.
+
+a.
+
+```{r}
+ggplot(county) + 
+geom_point(aes(x = median_edu, y = median_hh_income)) + 
+geom_boxplot(aes(x = smoking_ban, y = pop2017)) 
+```
+
+-- This code prints a combined scatterplot and boxplot where the scatterplot depicts the median income of households corresponding the median education, and the boxplot displays the smoking ban in different counties along the population of 2017.
+  This graph does not make much sense as it has two different values on each axis (none clearly specified) making a single 2-d graph compare values of 4 different aspects of the US counties. Also since only median values are being taken into the account, not much clarification is provided.
+  
+b.
+
+```{r}
+library("dplyr")
+library("magrittr")
+ggplot(county %>% filter(!is.na(median_edu))) +  
+geom_point(aes(x = homeownership, y = poverty)) +  
+facet_grid(median_edu ~ .) 
+```
+
+-- plot 1
+
+```{r}
+ggplot(county %>% filter(!is.na(median_edu))) +  
+geom_point(aes(x = homeownership, y = poverty)) +  
+facet_grid(. ~ median_edu)
+```
+
+--plot 2
+
+-- Plot 2 makes it easier to compare poverty levels across people from different median education levels.The reason being that plot has vertical faceting which helps in an intelligible spread of datapoints on both the axes, whereas the y-axis on plot 1 has values very close to each other and on x-axis they are spread apart.
+  From the above plots I infer that faceting across rows should be done when there is more data to be represented over the x-axis and across column when there is more data to be displayed over y-axis, so that the representation is clearer.
+  
+c.
+
+- Plot A
+
+```{r}
+ggplot(county)+
+  geom_point(aes(x = homeownership, y = poverty))+
+  ggtitle("Plot A")
+```
+
+- Plot B
+
+```{r}
+ggplot(county, aes(x = homeownership, y = poverty))+
+  geom_point()+
+  geom_smooth(se = FALSE, colour = 'blue')+
+  ggtitle("Plot B")
+```
+
+- Plot C
+
+```{r}
+ggplot(county, aes(x = homeownership, y = poverty))+
+  geom_point()+
+  geom_smooth(method = "loess", aes(colour = metro), se = FALSE)+
+  scale_color_manual(values = c("green","green"))+
+  ggtitle("Plot C")
+```
+
+-Plot D
+
+```{r}
+ggplot(county, aes(x = homeownership, y = poverty))+
+    geom_smooth(method = "loess", aes(colour = metro), se = FALSE)+
+  scale_color_manual(values = c("blue","blue"))+
+    geom_point()+
+  ggtitle("Plot D")
+```
+
+-Plot E
+
+```{r}
+ggplot(county, aes(x = homeownership, y = poverty))+
+      geom_point(aes(colour = metro))+
+     geom_smooth(method = "loess", aes(linetype = metro), se = FALSE)+
+  ggtitle("Plot E")
+```
+
+- Plot F
+
+```{r}
+ggplot(county, aes(x = homeownership, y = poverty))+
+      geom_point(aes(colour = metro))+
+    geom_smooth(method = "loess", aes(colour = metro), se = FALSE)+
+  ggtitle("Plot F")
+```
+
+- Plot G
+
+```{r}
+ggplot(county, aes(x = homeownership, y = poverty))+
+      geom_point(aes(colour = metro))+
+    geom_smooth(se = FALSE, colour = 'blue')+
+ggtitle("Plot G")
+
+```
+
+- Plot H
+
+```{r}
+ggplot(county, aes(x = homeownership, y = poverty))+
+      geom_point(aes(colour = metro))+
+
+  ggtitle("Plot H")
+```
+
+
+QUESTION 4.
+
+a.
+
+```{r}
+credit <- read.csv("C:/Users/ual-laptop/Downloads/INFO526 HW1/credit.csv")
+ggplot(credit, aes(x= income, y= balance, color = student, shape = student))+
+  geom_point()+
+  facet_grid(student ~ married,
+             labeller = label_both)+
+  geom_smooth(method = "lm", se = FALSE)+
+  labs(x="Income", y="Credit Card Balance")
+```
+
+-- The above plot tells us that with an increase in income, the credit card balance also increases for everyone, but if people are:
+        
+        - Married and a student then even with a high income their balance wont increase much because of the double expenses they have to bear(studies and household).
+        
+        - A student and not married then they might have a lower income, but still manage to save a lot due to frugal living.
+        
+        - Not married and not a student, they have the lowest credit card balance in relation to their income.
+        
+        - Married and not a student, they have the highest income and the second highest credit card balance.
+      
+b.
+
+- Yes married and student are useful predictors in addition with income as both of these other criteria give us an overlook on the expenses of an individual.
+  
+  -- A married person has expenses for the household, at the same time they are also earning more as a group when compared to other groups, whereas a student can have high or low income but due to frugal living situations they could also have high credit card balance.
+  
+c.
+
+```{r}
+credit$utilize <- credit$balance/credit$limit
+
+ggplot(credit, aes(x = income, y = utilize, colour = student, shape = student))+
+  geom_point()+
+  scale_y_continuous(labels = scales::label_percent())+
+  facet_grid(student ~ married,
+             labeller = label_both)+
+  geom_smooth(method = "lm", se = FALSE)+
+  labs(x = "Income", y = "Credit Utilization")
+```
+
+d.
+
+- The relationship between credit utilization and credit card balance is different in the following ways:
+
+      - For a married student the utilization remains approximately constant irrespective of the increase in salary.
+      
+      - For an unmarried student the credit utilization decreases with increase in income, whereas balance increases with increase in salary.
+      
+      - A person who is neither student nor married, his credit  utilization is increasing at a slow rate with increase in income.
+      
+      - A married person who is not a student, will have an even slower incline in credit utilization with increasing income.
+      
+- The main difference between both the plots is that credit utilization will decrease with in increase in income for a student and increase for a non-student, whereas in the credit balance graph the balance increases at different rates, but increases all the same. 
+
+QUESTION 5.
+
+```{r}
+library(ggrepel)
+
+napoleon <- readRDS("C:/Users/ual-laptop/Downloads/INFO526 HW1/napoleon.rds")
+cities <- napoleon$cities
+troops <- napoleon$troops
+temp <- napoleon$temperatures
+
+ggplot()+
+  geom_path(data = troops, aes(x = long, y = lat, group = group, 
+                   color = direction, linewidth = survivors), lineend = "round") +
+    geom_point(data = cities, aes(x = long, y = lat), color = '#ff035b') +
+  geom_text_repel(data = cities, aes(x = long, y = lat, label = city), colour = '#ff035b') +
+  scale_colour_manual(values = c("#fc9003", "#0d0742")) +
+  labs(title = "Napoleon's March",
+         x = NULL, y = NULL) 
+```
+
+- To understand the plot, I read this blog by Joanne Cheng(June 8, 2014) which explains the intention of this plot, and why is  this plot considered as one of the best visualizations of all time.  
+
+https://thoughtbot.com/blog/analyzing-minards-visualization-of-napoleons-1812-march
+
+- To get help with the technical aspects, I referred to the following GIT repository:
+
+https://github.com/andrewheiss/fancy-minard/blob/master/README.md
+
+-- Functions like `geom_path` and `geom_text_repel`.
+
+-- geom_path() assists in observing and plotting the changes in the data as they happen, through a stairstep plot, with the help of `geom_line()`.
+
+-- geom_text_repel() aids in the task of adding text directly to the plot.
+
+-- In geom_path, the data provided is troops, and the attribute corresponding to x-axis is long and y-axis is lat, colour is differentiated by the categorical variable direction, etc.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
